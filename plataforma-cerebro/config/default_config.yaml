@@ -1,0 +1,48 @@
+# Configuração Padrão do Cérebro de Empresa (Base Fallback)
+
+platform:
+  version: "1.0.0"
+  env: "production"
+
+model:
+  llm_provider: "google"
+  default_model: "gemini-3.5-flash"
+  temperature: 0.1
+  max_tokens: 2048
+
+database:
+  graph:
+    provider: "neo4j"
+    uri: "bolt://localhost:7687"
+    username: "neo4j"
+    password: "password"
+    database: "neo4j"
+  vector:
+    provider: "chromadb"
+    host: "localhost"
+    port: 8000
+    collection_name: "enterprise_knowledge"
+
+agents:
+  router:
+    enabled: true
+    routing_strategy: "prompt_classifier"
+  guardrail:
+    enabled: true
+    max_payment_limit: 10000.0  # Limite máximo de transação padrão
+    abac_rules:
+      - action: "payment_execution"
+        role_required: "finance_manager"
+  knowledge:
+    enabled: true
+    hybrid_search: true
+    max_contexts: 5
+  action:
+    enabled: true
+    mcp_enabled: true
+
+# Configurações do Servidor REST interno (FastAPI)
+server:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 2

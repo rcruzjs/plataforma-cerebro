@@ -1,0 +1,22 @@
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+ENV/
+
+# Logs e outputs de simulação
+*.log
+CNAB_remessa_mock.txt
+CNAB_retorno_mock.txt
+resultado_processamento_hoje.md
+plataforma-cerebro/tests/eval_results_log.json
+
+# Configurações sensíveis (SaaS Credentials)
+# Recomendado: Usar templates/exemplos em produção e ignorar arquivos reais
+# plataforma-cerebro/config/company_config.yaml

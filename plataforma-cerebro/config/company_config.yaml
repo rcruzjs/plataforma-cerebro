@@ -1,0 +1,48 @@
+# Configuração Customizada do Cliente (Exemplo Administradora de Condomínios)
+
+company:
+  id: "CONDO_MGMT_01"
+  name: "Gestão Integrada de Condomínios S.A."
+  domain: "condo-management"
+
+model:
+  default_model: "gemini-3.5-flash"
+  temperature: 0.0  # Zero para máxima precisão determinística em contas
+
+database:
+  graph:
+    provider: "neo4j"
+    uri: "neo4j+s://neo4j-aura-condo-management.databases.neo4j.io:7687"
+    username: "neo4j"
+    password: "senha-real-aura-condominio"
+    database: "neo4j"
+  vector:
+    provider: "pgvector"
+    host: "postgres-vectordb-server"
+    port: 5432
+    collection_name: "condo_knowledge_base"
+
+agents:
+  guardrail:
+    max_payment_limit: 50000.0  # Limite customizado para condomínios maiores
+    abac_rules:
+      - action: "payment_execution"
+        role_required: "condo_financial_analyst"
+      - action: "view_balances"
+        role_required: "condo_manager"
+
+  action:
+    mcp_servers:
+      financial_mcp:
+        command: "node"
+        args: ["/opt/mcp/dist/financial-mcp.js"]
+        env:
+          FINANCIAL_API_KEY: "prod-sec-key-1298"
+      documents_mcp:
+        command: "python"
+        args: ["/opt/mcp/docs_mcp.py"]
+
+# Configurações de notificação de erros/auditoria
+notifications:
+  slack_webhook: "https://hooks.slack.com/services/T00/B00/X00"
+  alert_on_safety_breach: true
