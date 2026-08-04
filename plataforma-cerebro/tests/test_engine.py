@@ -76,5 +76,33 @@ class TestEnterpriseBrainEngine(unittest.TestCase):
         self.assertEqual(res["intent"], "PROCESSAR_PAGAMENTOS")
         self.assertEqual(res["action_result"]["status"], "sucesso")
 
+    def test_cypher_injection_guardrail(self):
+        # Testar bloqueio de comandos de escrita no Grafo (Cypher Injection Protection)
+        query_normal = "MATCH (c:Condominio) RETURN c"
+        self.assertTrue(self.engine.graph.validate_query(query_normal))
+        
+        query_perigosa = "MATCH (c:Condominio) DETACH DELETE c"
+        self.assertFalse(self.engine.graph.validate_query(query_perigosa))
+        
+        # Executar deve levantar ValueError
+        with self.assertRaises(ValueError):
+            self.engine.graph.query(query_perigosa)
+
+    def test_chat_memory_store(self):
+        # Testar escrita e leitura de historico de chat
+        sessao_teste = "session_test_999"
+        
+        # Limpar registros anteriores se houver
+        self.engine.memory.add_message(sessao_teste, "user", "Ola Cérebro")
+        self.engine.memory.add_message(sessao_teste, "agent", "Ola Humano, como posso ajudar?")
+        
+        historico = self.engine.memory.get_history(sessao_teste)
+        self.assertEqual(len(historico), 2)
+        self.assertEqual(historico[0]["sender"], "user")
+        self.assertEqual(historico[0]["message"], "Ola Cérebro")
+        self.assertEqual(historico[1]["sender"], "agent")
+        self.assertEqual(historico[1]["message"], "Ola Humano, como posso ajudar?")
+
 if __name__ == "__main__":
     unittest.main()
+

@@ -4,6 +4,7 @@ company:
   id: "CONDO_MGMT_01"
   name: "Gestão Integrada de Condomínios S.A."
   domain: "condo-management"
+  api_key: "prod-sec-key-1298"
 
 model:
   default_model: "gemini-3.5-flash"

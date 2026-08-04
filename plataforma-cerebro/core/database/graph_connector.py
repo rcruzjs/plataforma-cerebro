@@ -33,9 +33,30 @@ class GraphConnector:
                 logger.error(f"Erro ao conectar no Neo4j ({e}). Mudando para Modo Mock.")
                 self.mock_mode = True
 
+    def validate_query(self, cypher_query):
+        """
+        Garante que a query Cypher executada e estritamente Read-Only.
+        Bloqueia palavras-chave de mutacao para evitar Cypher Injection.
+        """
+        forbidden_keywords = ["create", "delete", "detach", "set", "remove", "merge", "drop", "alter"]
+        normalized = cypher_query.lower()
+        
+        # Tokenizar por espaco para evitar falsos positivos (ex: variaveis contendo a substring 'set')
+        words = set(normalized.replace("(", " ").replace(")", " ").replace("[", " ").replace("]", " ").split())
+        
+        for keyword in forbidden_keywords:
+            if keyword in words:
+                logger.error(f"[SECURITY] Comando proibido '{keyword}' detectado na query Cypher!")
+                return False
+        return True
+
     def query(self, cypher_query, parameters=None):
         if parameters is None:
             parameters = {}
+
+        # Aplicar Guardrail de seguranca de escrita
+        if not self.validate_query(cypher_query):
+            raise ValueError("Query bloqueada: Tentativa de modificacao de dados detectada (Cypher Injection Guardrail).")
 
         if self.mock_mode:
             logger.info(f"[MOCK GRAPH] Executando Cypher: {cypher_query} com params {parameters}")
@@ -59,3 +80,4 @@ class GraphConnector:
         if self.driver:
             self.driver.close()
             logger.info("Conexao com Neo4j fechada.")
+

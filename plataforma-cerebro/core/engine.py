@@ -3,10 +3,12 @@ import yaml
 import logging
 from core.database.graph_connector import GraphConnector
 from core.database.vector_connector import VectorConnector
+from core.database.memory_store import MemoryStore
 from core.agents.router import RouterAgent
 from core.agents.guardrail import GuardrailAgent
 from core.agents.knowledge import KnowledgeAgent
 from core.agents.action import ActionAgent
+import json
 
 # Configuração de Logs
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -25,6 +27,7 @@ class EnterpriseBrainEngine:
         db_config = self.config.get("database", {})
         graph_cfg = db_config.get("graph", {})
         vector_cfg = db_config.get("vector", {})
+        memory_cfg = db_config.get("memory", {})
         
         self.graph = GraphConnector(
             uri=graph_cfg.get("uri"),
@@ -39,6 +42,8 @@ class EnterpriseBrainEngine:
             port=vector_cfg.get("port"),
             collection_name=vector_cfg.get("collection_name")
         )
+        
+        self.memory = MemoryStore(memory_cfg)
         
         # 2. Inicializar Agentes
         agent_cfg = self.config.get("agents", {})
@@ -86,46 +91,51 @@ class EnterpriseBrainEngine:
             else:
                 target[k] = v
 
-    def process_request(self, prompt, user_role, user_id, condo_id, payment_value=0.0):
+    def process_request(self, prompt, user_role, user_id, condo_id, payment_value=0.0, session_id=None):
         """
         Orquestra a execucao da pergunta/comando do usuario pelos agentes.
         """
         logger.info(f"[Engine] Recebendo prompt do usuario '{user_id}' ({user_role}): '{prompt}'")
         
+        # Registrar entrada no historico
+        if session_id:
+            self.memory.add_message(session_id, "user", prompt)
+            
         # 1. Roteamento
         intent = self.router.route(prompt)
         
+        res = {}
         if intent == "PROCESSAR_PAGAMENTOS":
             # 2. Validacao de Segurança / Limites e ABAC
             authorized, reason = self.guardrail.validate_payment(user_role, payment_value, condo_id)
             if not authorized:
-                return {
+                res = {
                     "status": "bloqueado",
                     "intent": intent,
                     "motivo": reason,
                     "response": f"Seguranca: Operacao bloqueada. {reason}"
                 }
+            else:
+                # 3. Consulta de contexto
+                context = self.knowledge.retrieve_context(prompt)
                 
-            # 3. Consulta de contexto
-            context = self.knowledge.retrieve_context(prompt)
-            
-            # 4. Execucao de acao via ferramenta
-            action_result = self.action.execute_action(
-                "financial_mcp/process_payout", 
-                {"valor": payment_value, "condo_id": condo_id}
-            )
-            
-            return {
-                "status": "executado",
-                "intent": intent,
-                "context_retrieved": context,
-                "action_result": action_result,
-                "response": f"Pagamento de R$ {payment_value:.2f} processado com sucesso para o Condominio {condo_id}."
-            }
+                # 4. Execucao de acao via ferramenta
+                action_result = self.action.execute_action(
+                    "financial_mcp/process_payout", 
+                    {"valor": payment_value, "condo_id": condo_id}
+                )
+                
+                res = {
+                    "status": "executado",
+                    "intent": intent,
+                    "context_retrieved": context,
+                    "action_result": action_result,
+                    "response": f"Pagamento de R$ {payment_value:.2f} processado com sucesso para o Condominio {condo_id}."
+                }
             
         elif intent == "RELATORIO_FINANCEIRO":
             context = self.knowledge.retrieve_context(prompt)
-            return {
+            res = {
                 "status": "sucesso",
                 "intent": intent,
                 "context_retrieved": context,
@@ -133,11 +143,18 @@ class EnterpriseBrainEngine:
             }
             
         else:
-            return {
+            res = {
                 "status": "sucesso",
                 "intent": intent,
                 "response": "Resposta geral fornecida a partir de modelos genericos."
             }
+            
+        # Registrar saida no historico
+        if session_id:
+            self.memory.add_message(session_id, "agent", res["response"])
+            
+        return res
+
 
 if __name__ == "__main__":
     # Exemplo rápido de execução do motor
