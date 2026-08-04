@@ -30,8 +30,24 @@ class ActionAgent:
             valor = arguments["valor"]
             condo_id = arguments["condo_id"]
             
+            # --- GUARDRAIL EXTRA: Payload Signing (HMAC-SHA256) ---
+            import hmac
+            import hashlib
+            signing_key = self.config.get("company", {}).get("signing_key", "default-tenant-signing-key").encode("utf-8")
+            msg = f"{condo_id}:{valor:.2f}".encode("utf-8")
+            signature = hmac.new(signing_key, msg, hashlib.sha256).hexdigest()
+            
+            logger.info(f"[Action Agent] [SECURITY] Payload Assinado Digitalmente via HMAC-SHA256: {signature}")
+            
+            # Simulando Verificação no Servidor MCP Receptor
+            expected_sig = hmac.new(signing_key, msg, hashlib.sha256).hexdigest()
+            if not hmac.compare_digest(signature, expected_sig):
+                logger.error("[Action Agent] [SECURITY ERROR] Falha de Integridade: Assinatura de Payload Invalida!")
+                return {"status": "erro", "motivo": "Falha de Payload Signing: Assinatura digital do tenant nao confere."}
+            
             logger.info(f"[Action Agent] [MCP financial_mcp] Enviando solicitacao de transferencia no valor R$ {valor:.2f} para o banco do condominio {condo_id} usando JIT Session Token {session_token[:6]}...")
             return {"status": "sucesso", "transacao_id": "TX_90123"}
+
             
         logger.warning(f"[Action Agent] Ferramenta '{tool_name}' nao encontrada ou nao configurada neste tenant.")
         return {"status": "erro", "motivo": f"Ferramenta '{tool_name}' inexistente"}

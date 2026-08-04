@@ -1,0 +1,12 @@
+agents:
+  guardrail:
+    max_payment_limit: 50000.0
+company:
+  api_key: key_condominio_vista_bella_7445ed99b909
+  name: Condominio Vista Bella
+  signing_key: sig_condominio_vista_bella_2af0c28eb48fbe26
+database:
+  memory:
+    database: chat_history_condominio_vista_bella.db
+    provider: sqlite
+  provider: sqlite

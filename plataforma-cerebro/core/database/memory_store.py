@@ -146,6 +146,32 @@ class MemoryStore:
             cursor.close()
         return result
 
+    def get_all_pending_approvals(self):
+        cursor = self.conn.cursor()
+        query = "SELECT id, prompt, user_role, user_id, condo_id, payment_value, session_id, status FROM pending_approvals ORDER BY id DESC"
+        
+        results = []
+        try:
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            for row in rows:
+                results.append({
+                    "id": row[0],
+                    "prompt": row[1],
+                    "user_role": row[2],
+                    "user_id": row[3],
+                    "condo_id": row[4],
+                    "payment_value": float(row[5]),
+                    "session_id": row[6],
+                    "status": row[7]
+                })
+        except Exception as e:
+            logger.error(f"Erro ao obter aprovacoes: {e}")
+        finally:
+            cursor.close()
+        return results
+
+
     def update_approval_status(self, approval_id, status):
         cursor = self.conn.cursor()
         query = "UPDATE pending_approvals SET status = %s WHERE id = %s" if self.use_postgres else \

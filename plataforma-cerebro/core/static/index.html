@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cérebro de Empresa - B2B Admin Console</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="glass-container">
+        <!-- HEADER -->
+        <header>
+            <div class="logo">
+                <span class="pulse"></span>
+                <h1>Cérebro de Empresa</h1>
+            </div>
+            <div class="badge" id="tenant-badge">Carregando Tenant...</div>
+        </header>
+
+        <div class="layout-grid">
+            <!-- SIDEBAR INFO -->
+            <aside class="sidebar card">
+                <h3>Monitor do Sistema</h3>
+                <div class="info-group">
+                    <label>Status do Core</label>
+                    <span class="status-indicator online">Online</span>
+                </div>
+                <div class="info-group">
+                    <label>Modo de Isolamento</label>
+                    <span>Single Tenant (Container)</span>
+                </div>
+                <div class="info-group">
+                    <label>Database Prov</label>
+                    <span>Postgres/SQLite</span>
+                </div>
+                <div class="info-group">
+                    <label>Grafo Semântico</label>
+                    <span>Neo4j Aura (Mock-RO)</span>
+                </div>
+                
+                <hr>
+                
+                <h3>Credencial de Sessão (JIT)</h3>
+                <p class="desc">Chave dinâmica de autoridade necessária para assinar transações na rede MCP.</p>
+                <input type="text" id="jit-token-input" placeholder="Token JIT (ex: token-valido-123)" value="token-valido-123">
+                
+                <hr>
+                
+                <h3>Segurança do Gateway</h3>
+                <input type="password" id="api-key-input" placeholder="X-API-Key do Gateway" value="prod-sec-key-1298">
+            </aside>
+
+            <!-- MAIN CONTENT -->
+            <main class="main-content">
+                <!-- APPROVALS SECTION -->
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Fila de Aprovações Pendentes (Human-in-the-Loop)</h2>
+                        <button class="btn btn-secondary" onclick="loadApprovals()">Atualizar Lista</button>
+                    </div>
+                    <p class="desc">Operações agênticas suspensas por exceder o limite autônomo (R$ 10.000,00). Revise o Vibe Diff antes de assinar.</p>
+                    
+                    <div id="approvals-container" class="list-container">
+                        <div class="empty-state">Buscando transações pendentes...</div>
+                    </div>
+                </section>
+
+                <!-- HISTORY SECTION -->
+                <section class="card">
+                    <div class="section-header">
+                        <h2>Auditoria de Histórico de Conversa</h2>
+                        <div class="search-box">
+                            <input type="text" id="session-search-input" placeholder="ID da Sessão (ex: session_123)">
+                            <button class="btn btn-primary" onclick="loadHistory()">Buscar</button>
+                        </div>
+                    </div>
+                    
+                    <div id="chat-history-container" class="chat-container">
+                        <div class="empty-state">Informe o ID da Sessão e clique em Buscar para auditar as conversas.</div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- NOTIFICATION BAR -->
+    <div id="notification" class="notification hide"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

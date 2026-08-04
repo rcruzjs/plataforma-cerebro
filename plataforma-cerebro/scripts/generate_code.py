@@ -124,10 +124,72 @@ def main():
 
     tests_passed, test_output = run_tests()
 
+    # --- PILAR 1: SELF-HEALING ENGINE ---
+    attempts = 0
+    max_healing_attempts = 3
+    
+    while not tests_passed and gemini_key and attempts < max_healing_attempts:
+        attempts += 1
+        log_factory(f"[SELF-HEALING] Tentativa #{attempts} de auto-correcao do codigo...", success=False)
+        
+        # Ler o código com erro para enviar como contexto
+        with open(target_path, "r", encoding="utf-8") as f:
+            faulty_code = f.read()
+            
+        healing_prompt = f"""
+        Você é um Engenheiro de IA especializado no framework New SDLC.
+        Sua missão é corrigir o código Python do arquivo '{target_path}' para que ele passe nos testes corporativos de regressão.
+
+        O código que você gerou anteriormente quebrou com os seguintes erros de teste:
+        --- ERROS DOS TESTES ---
+        {test_output}
+        -----------------------
+
+        --- CÓDIGO ATUAL QUE QUEBROU ---
+        {faulty_code}
+        --------------------------------
+
+        --- ESPECIFICAÇÃO ORIGINAL ---
+        {spec_content}
+        ------------------------------
+
+        REGRAS DE RETORNO:
+        1. Corrija o bug com precisão de acordo com o traceback fornecido.
+        2. Retorne APENAS o código Python pronto para gravação. Não inclua blocos de markdown ```python ... ``` nem explicações textuais adicionais.
+        """
+        
+        try:
+            import google.generativeai as genai
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content(healing_prompt)
+            corrected_code = response.text.strip()
+            
+            if corrected_code.startswith("```python"):
+                corrected_code = corrected_code[9:]
+            if corrected_code.endswith("```"):
+                corrected_code = corrected_code[:-3]
+            corrected_code = corrected_code.strip()
+            
+            # Gravar o código corrigido e retestar
+            with open(target_path, "w", encoding="utf-8") as f:
+                f.write(corrected_code)
+                
+            tests_passed, test_output = run_tests()
+            
+        except Exception as e:
+            log_factory(f"Falha na tentativa de auto-correcao: {e}", success=False)
+            break
+
     if tests_passed:
-        log_factory(f"Código validado! Todos os testes de regressão passaram.")
+        if attempts > 0:
+            log_factory(f"[SELF-HEALING SUCCESS] O compilador auto-corrigiu o bug com sucesso na tentativa #{attempts}!")
+        else:
+            log_factory(f"Código validado! Todos os testes de regressão passaram.")
         if has_backup:
-            os.remove(backup_path) # Deleta o backup antigo
+            try:
+                os.remove(backup_path) # Deleta o backup antigo
+            except:
+                pass
         log_factory(f"Arquivo '{target_path}' atualizado com sucesso a partir das especificações.")
         sys.exit(0)
     else:
@@ -142,6 +204,7 @@ def main():
             os.rename(backup_path, target_path)
         log_factory("Reversão concluída. Código original restaurado.", success=False)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

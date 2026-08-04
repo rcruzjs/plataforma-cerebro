@@ -1,5 +1,5 @@
 # --- RECONSTRUÍDO VIA SPEC-DRIVEN DEVELOPMENT --- 
-# Data: 2026-08-03 22:45:31
+# Data: 2026-08-03 22:54:21
 # Spec de Referência: specs/integration_specs.md
 import logging
 
@@ -83,4 +83,3 @@ class GraphConnector:
         if self.driver:
             self.driver.close()
             logger.info("Conexao com Neo4j fechada.")
-

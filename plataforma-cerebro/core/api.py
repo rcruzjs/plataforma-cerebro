@@ -3,6 +3,8 @@ import sys
 import uvicorn
 from fastapi import FastAPI, Header, HTTPException, Depends, Security
 from fastapi.security import APIKeyHeader
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import Optional
 
@@ -55,6 +57,18 @@ class ApproveRequest(BaseModel):
     approver_id: str
 
 # --- ENDPOINTS ---
+
+# Servir arquivos estaticos do painel admin web
+app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")), name="static")
+
+@app.get("/", response_class=HTMLResponse)
+def serve_dashboard():
+    """Servidor HTML do Dashboard Administrativo."""
+    html_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
+    if os.path.exists(html_path):
+        with open(html_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return HTMLResponse(content="<h1>Dashboard index.html nao encontrado</h1>")
 
 @app.get("/health")
 def health_check():
@@ -111,6 +125,17 @@ def approve_query(
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao processar aprovacao: {str(e)}")
+
+@app.get("/api/v1/approvals", dependencies=[Depends(verify_api_key)])
+def get_pending_approvals():
+    """
+    Recupera todas as transacoes pendentes de aprovacao manual (Human-In-The-Loop).
+    """
+    try:
+        approvals = engine.memory.get_all_pending_approvals()
+        return approvals
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao recuperar aprovacoes: {str(e)}")
 
 @app.get("/api/v1/history/{session_id}", dependencies=[Depends(verify_api_key)])
 def get_chat_history(session_id: str):
