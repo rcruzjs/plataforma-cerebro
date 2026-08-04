@@ -49,6 +49,11 @@ class QueryRequest(BaseModel):
     payment_value: float = 0.0
     session_id: Optional[str] = None
 
+class ApproveRequest(BaseModel):
+    approval_id: str
+    approver_role: str
+    approver_id: str
+
 # --- ENDPOINTS ---
 
 @app.get("/health")
@@ -64,10 +69,14 @@ def health_check():
     }
 
 @app.post("/api/v1/query", dependencies=[Depends(verify_api_key)])
-def execute_query(payload: QueryRequest):
+def execute_query(
+    payload: QueryRequest,
+    x_user_session_token: Optional[str] = Header(None, alias="X-User-Session-Token")
+):
     """
     Processa prompts de linguagem natural dos usuarios do condomínio.
     Aplica Guardrails, busca no Neo4j e executa acoes MCP se necessario.
+    Suporta JIT session tokens para Zero Ambient Authority.
     """
     try:
         result = engine.process_request(
@@ -76,11 +85,32 @@ def execute_query(payload: QueryRequest):
             user_id=payload.user_id,
             condo_id=payload.condo_id,
             payment_value=payload.payment_value,
-            session_id=payload.session_id
+            session_id=payload.session_id,
+            session_token=x_user_session_token
         )
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro interno no processamento cognitivo: {str(e)}")
+
+@app.post("/api/v1/approve", dependencies=[Depends(verify_api_key)])
+def approve_query(
+    payload: ApproveRequest,
+    x_user_session_token: Optional[str] = Header(None, alias="X-User-Session-Token")
+):
+    """
+    Endpoint de aprovacao manual (Human-In-The-Loop) para transacoes em retencao.
+    Exige credencial de sessao JIT valida.
+    """
+    try:
+        result = engine.approve_transaction(
+            approval_id=payload.approval_id,
+            approver_role=payload.approver_role,
+            approver_id=payload.approver_id,
+            session_token=x_user_session_token
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao processar aprovacao: {str(e)}")
 
 @app.get("/api/v1/history/{session_id}", dependencies=[Depends(verify_api_key)])
 def get_chat_history(session_id: str):
@@ -102,3 +132,4 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     print(f"Iniciando API REST do Cerebro em http://0.0.0.0:{port}")
     uvicorn.run(app, host="0.0.0.0", port=port)
+

@@ -70,6 +70,18 @@ class MemoryStore:
                     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS pending_approvals (
+                    id VARCHAR(255) PRIMARY KEY,
+                    prompt TEXT NOT NULL,
+                    user_role VARCHAR(100) NOT NULL,
+                    user_id VARCHAR(100) NOT NULL,
+                    condo_id VARCHAR(100) NOT NULL,
+                    payment_value NUMERIC NOT NULL,
+                    session_id VARCHAR(255),
+                    status VARCHAR(50) DEFAULT 'PENDING'
+                );
+            """)
         else:
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS chat_history (
@@ -80,7 +92,73 @@ class MemoryStore:
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                 );
             """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS pending_approvals (
+                    id TEXT PRIMARY KEY,
+                    prompt TEXT NOT NULL,
+                    user_role TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    condo_id TEXT NOT NULL,
+                    payment_value REAL NOT NULL,
+                    session_id TEXT,
+                    status TEXT DEFAULT 'PENDING'
+                );
+            """)
         cursor.close()
+
+    def add_pending_approval(self, approval_id, prompt, user_role, user_id, condo_id, payment_value, session_id=None):
+        cursor = self.conn.cursor()
+        query = "INSERT INTO pending_approvals (id, prompt, user_role, user_id, condo_id, payment_value, session_id, status) VALUES (%s, %s, %s, %s, %s, %s, %s, 'PENDING')" if self.use_postgres else \
+                "INSERT INTO pending_approvals (id, prompt, user_role, user_id, condo_id, payment_value, session_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')"
+        try:
+            cursor.execute(query, (approval_id, prompt, user_role, user_id, condo_id, payment_value, session_id))
+            if not self.use_postgres:
+                self.conn.commit()
+            logger.info(f"[Memory Store] Aprovacao pendente registrada: {approval_id} (Valor: R$ {payment_value:.2f})")
+        except Exception as e:
+            logger.error(f"Erro ao salvar aprovacao pendente: {e}")
+        finally:
+            cursor.close()
+
+    def get_pending_approval(self, approval_id):
+        cursor = self.conn.cursor()
+        query = "SELECT prompt, user_role, user_id, condo_id, payment_value, session_id, status FROM pending_approvals WHERE id = %s" if self.use_postgres else \
+                "SELECT prompt, user_role, user_id, condo_id, payment_value, session_id, status FROM pending_approvals WHERE id = ?"
+        
+        result = None
+        try:
+            cursor.execute(query, (approval_id,))
+            row = cursor.fetchone()
+            if row:
+                result = {
+                    "id": approval_id,
+                    "prompt": row[0],
+                    "user_role": row[1],
+                    "user_id": row[2],
+                    "condo_id": row[3],
+                    "payment_value": float(row[4]),
+                    "session_id": row[5],
+                    "status": row[6]
+                }
+        except Exception as e:
+            logger.error(f"Erro ao obter aprovacao pendente '{approval_id}': {e}")
+        finally:
+            cursor.close()
+        return result
+
+    def update_approval_status(self, approval_id, status):
+        cursor = self.conn.cursor()
+        query = "UPDATE pending_approvals SET status = %s WHERE id = %s" if self.use_postgres else \
+                "UPDATE pending_approvals SET status = ? WHERE id = ?"
+        try:
+            cursor.execute(query, (status, approval_id))
+            if not self.use_postgres:
+                self.conn.commit()
+            logger.info(f"[Memory Store] Status da aprovacao '{approval_id}' atualizado para: {status}")
+        except Exception as e:
+            logger.error(f"Erro ao atualizar status da aprovacao '{approval_id}': {e}")
+        finally:
+            cursor.close()
 
     def add_message(self, session_id, sender, message):
         cursor = self.conn.cursor()
@@ -123,3 +201,4 @@ class MemoryStore:
         if self.conn:
             self.conn.close()
             logger.info("Conexao com o historico de chat fechada.")
+

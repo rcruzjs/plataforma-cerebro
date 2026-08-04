@@ -64,13 +64,14 @@ class TestEnterpriseBrainEngine(unittest.TestCase):
         self.assertIn("excede o limite maximo", reason)
 
     def test_process_request_flow(self):
-        # Testar o fluxo completo integrado na Engine
+        # Testar o fluxo completo integrado na Engine passando token JIT
         res = self.engine.process_request(
             prompt="Processar lote de pagamento de R$ 5000.00",
             user_role="condo_financial_analyst",
             user_id="analista_01",
             condo_id="C01",
-            payment_value=5000.0
+            payment_value=5000.0,
+            session_token="token-valido-123"
         )
         self.assertEqual(res["status"], "executado")
         self.assertEqual(res["intent"], "PROCESSAR_PAGAMENTOS")
@@ -90,9 +91,10 @@ class TestEnterpriseBrainEngine(unittest.TestCase):
 
     def test_chat_memory_store(self):
         # Testar escrita e leitura de historico de chat
-        sessao_teste = "session_test_999"
+        import uuid
+        sessao_teste = f"session_test_{uuid.uuid4().hex[:8]}"
         
-        # Limpar registros anteriores se houver
+        # Salvar registros
         self.engine.memory.add_message(sessao_teste, "user", "Ola Cérebro")
         self.engine.memory.add_message(sessao_teste, "agent", "Ola Humano, como posso ajudar?")
         
@@ -103,6 +105,68 @@ class TestEnterpriseBrainEngine(unittest.TestCase):
         self.assertEqual(historico[1]["sender"], "agent")
         self.assertEqual(historico[1]["message"], "Ola Humano, como posso ajudar?")
 
+
+    def test_jit_credentials_violation(self):
+        # Testar bloqueio por falta de token de sessao dinâmico (JIT violation)
+        res_sem_token = self.engine.process_request(
+            prompt="Executar pagamento de R$ 500.00",
+            user_role="condo_financial_analyst",
+            user_id="analista_01",
+            condo_id="C01",
+            payment_value=500.0,
+            session_token=None # Sem token
+        )
+        self.assertEqual(res_sem_token["action_result"]["status"], "erro")
+        self.assertIn("Violacao de JIT", res_sem_token["action_result"]["motivo"])
+
+        # Testar sucesso com token valido
+        res_com_token = self.engine.process_request(
+            prompt="Executar pagamento de R$ 500.00",
+            user_role="condo_financial_analyst",
+            user_id="analista_01",
+            condo_id="C01",
+            payment_value=500.0,
+            session_token="token-valido-123"
+        )
+        self.assertEqual(res_com_token["action_result"]["status"], "sucesso")
+
+    def test_human_in_the_loop_and_vibe_diff(self):
+        # Testar pagamento acima do limite de R$ 10.000,00 que exige aprovacao
+        res = self.engine.process_request(
+            prompt="Executar pagamento de R$ 15000.00",
+            user_role="condo_financial_analyst",
+            user_id="analista_01",
+            condo_id="C01",
+            payment_value=15000.0,
+            session_id="session_123"
+        )
+        self.assertEqual(res["status"], "needs_approval")
+        self.assertIn("vibe_diff", res)
+        self.assertEqual(res["vibe_diff"]["valor_solicitado"], 15000.0)
+        self.assertTrue(res["approval_id"].startswith("APP_"))
+
+        approval_id = res["approval_id"]
+
+        # Tentar aprovar com cargo nao autorizado (sindico/manager) -> Deve bloquear
+        res_aprovacao_bloqueada = self.engine.approve_transaction(
+            approval_id=approval_id,
+            approver_role="condo_manager",
+            approver_id="sindico_01",
+            session_token="token-valido"
+        )
+        self.assertEqual(res_aprovacao_bloqueada["status"], "bloqueado")
+
+        # Aprovar com cargo autorizado e token JIT -> Deve executar
+        res_aprovacao_sucesso = self.engine.approve_transaction(
+            approval_id=approval_id,
+            approver_role="condo_financial_analyst",
+            approver_id="analista_01",
+            session_token="token-valido-456"
+        )
+        self.assertEqual(res_aprovacao_sucesso["status"], "executado")
+        self.assertEqual(res_aprovacao_sucesso["action_result"]["status"], "sucesso")
+
 if __name__ == "__main__":
     unittest.main()
+
 

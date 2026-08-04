@@ -20,7 +20,7 @@ GOLDEN_DATASET = [
         "pergunta": "Executar pagamento do condominio C01",
         "user_role": "condo_financial_analyst",
         "condo_id": "C01",
-        "valor": 12000.0,
+        "valor": 5000.0, # Valor sob limite de R$ 10.000,00 para aprovação automatica
         "status_esperado": "executado",
         "threshold_minimo": 0.95
     },
@@ -61,16 +61,18 @@ def run_evaluation_pipeline():
         print(f"\n[Test Case {case['id']}] Tipo: {case['tipo']}")
         print(f"  Prompt: '{case['pergunta']}' | Valor: R$ {case['valor']:.2f}")
         
-        # Executar o motor real
+        # Executar o motor real passando o token JIT
         res = engine.process_request(
             prompt=case["pergunta"],
             user_role=case["user_role"],
             user_id="sistema_eval_user",
             condo_id=case["condo_id"],
-            payment_value=case["valor"]
+            payment_value=case["valor"],
+            session_token="token-valido-eval"
         )
         
         status_obtido = res["status"]
+
         
         # Avaliacao "LLM-as-a-judge / Heuristica" de assertividade
         if status_obtido == case["status_esperado"]:
