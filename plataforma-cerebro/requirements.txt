@@ -3,4 +3,5 @@ pytest>=7.0
 fastapi>=0.100
 uvicorn>=0.20
 psycopg2-binary>=2.9
+google-generativeai>=0.3.0
 # neo4j>=5.0 (Descomente se for conectar em instancia real Neo4j Aura)

@@ -1,3 +1,6 @@
+# --- RECONSTRUÍDO VIA SPEC-DRIVEN DEVELOPMENT --- 
+# Data: 2026-08-03 22:45:31
+# Spec de Referência: specs/integration_specs.md
 import logging
 
 logger = logging.getLogger("graph_connector")
